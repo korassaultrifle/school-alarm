@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>등교 알리미</title>
+<meta name="theme-color" content="#121315">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* 한 화면 앱: 위에 "출발까지 남은 시간" 하나, 아래 오늘 수업 → 이번 주. 폰 다크 모드 시간표 앱 옆에 놓일 단일 다크 테마 */
+:root {
+  color-scheme: dark;
+  --bg: #121315;
+  --panel: #1b1c20;
+  --line: #2c2e34;
+  --fg: #eceef2;
+  --muted: #8d919c;
+  --go: #ffb44a;
+  --late: #ff6b5e;
+  --done: #6fcf97;
+  --f-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --f-num: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+html, body { height: 100%; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 480px; margin: 0 auto; padding-block: 20px 40px; display: flex; flex-direction: column; gap: 22px; }
+.top { display: flex; justify-content: space-between; align-items: baseline; color: var(--muted); font-size: 13px; }
+.top b { color: var(--fg); font-size: 17px; font-weight: 700; }
+
+.hero { display: flex; flex-direction: column; gap: 6px; padding-block: 8px 4px; }
+.hero .label { font-size: 14px; color: var(--muted); letter-spacing: .02em; }
+.hero .count { font-family: var(--f-num); font-weight: 700; font-size: clamp(52px, 17vw, 76px); line-height: 1; letter-spacing: -.03em; color: var(--go); font-variant-numeric: tabular-nums; }
+.hero.late .count { color: var(--late); }
+.hero.ok .count, .hero.free .count { color: var(--done); }
+.hero .sub { font-size: 15px; }
+.hero .sub span { font-family: var(--f-num); }
+
+.go-btn {
+  align-self: flex-start; margin-top: 10px; font: inherit; font-weight: 700; font-size: 15px;
+  padding: 12px 20px; border-radius: 12px; border: 0; cursor: pointer;
+  background: var(--go); color: #1a1205;
+}
+.go-btn[aria-pressed="true"] { background: transparent; color: var(--done); box-shadow: inset 0 0 0 2px var(--done); }
+.go-btn:focus-visible, .chip:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+
+h2 { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: .06em; }
+.list { display: flex; flex-direction: column; gap: 8px; }
+.cls { display: grid; grid-template-columns: 6px 1fr auto; gap: 12px; align-items: center; background: var(--panel); border-radius: 12px; padding: 12px 14px 12px 0; overflow: hidden; }
+.cls .bar { align-self: stretch; }
+.cls .name { font-weight: 600; min-width: 0; }
+.cls .room { font-size: 13px; color: var(--muted); }
+.cls .time { font-family: var(--f-num); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+.cls.past { opacity: .4; }
+.cls .now { display: inline-block; font-size: 11px; font-weight: 700; color: #121315; background: var(--done); border-radius: 4px; padding: 0 6px; margin-left: 6px; vertical-align: 2px; }
+.empty { color: var(--muted); background: var(--panel); border-radius: 12px; padding: 16px 14px; }
+
+.week { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.chip { font: inherit; background: var(--panel); border: 0; border-radius: 10px; color: var(--fg); padding: 10px 4px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.chip small { font-family: var(--f-num); font-size: 12px; color: var(--muted); }
+.chip[aria-current="true"] { box-shadow: inset 0 0 0 2px var(--fg); }
+.chip.off small { color: var(--line); }
+
+.note { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+@media (prefers-reduced-motion: no-preference) { .hero.late .count { animation: blink 1s steps(2) infinite; } }
+@keyframes blink { 50% { opacity: .55; } }
+
+.ics { display: flex; flex-direction: column; gap: 10px; }
+.ics a { align-self: flex-start; font-weight: 700; color: var(--fg); text-decoration: none; padding: 10px 16px; border-radius: 10px; box-shadow: inset 0 0 0 1.5px var(--line); }
+.ics a:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+
+/* 워치(갤럭시 워치 브라우저 등 좁은 둥근 화면): 큰 숫자 하나만 가운데 */
+@media (max-width: 320px) {
+  body { padding-left: 14%; padding-right: 14%; font-size: 13px; }
+  .wrap { box-sizing: border-box; min-height: 100%; justify-content: center; padding-block: 12px; gap: 6px; }
+  .top, .list-sec, .week-sec, .ics, .go-btn { display: none !important; }
+  .hero { align-items: center; text-align: center; padding: 0; gap: 2px; }
+  .hero .label { font-size: 12px; }
+  .hero .count { font-size: 36px; }
+  .hero .sub { font-size: 12px; line-height: 1.35; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="top"><b id="today">10월 19일 월요일</b><span>2026-2학기</span></div>
+
+  <section class="hero" id="hero" aria-live="polite">
+    <div class="label" id="heroLabel">등교 출발까지</div>
+    <div class="count" id="heroCount">--:--</div>
+    <div class="sub" id="heroSub"></div>
+    <button class="go-btn" id="goBtn" type="button" aria-pressed="false">출발했어요</button>
+  </section>
+
+  <section class="list-sec">
+    <h2 id="listTitle">오늘 일정</h2>
+    <div class="list" id="list"></div>
+  </section>
+
+  <section class="week-sec">
+    <h2>이번 주 · 요일 누르면 그날 일정</h2>
+    <div class="week" id="week"></div>
+  </section>
+
+  <section class="ics">
+    <h2>알림 넣기</h2>
+    <a href="timetable.ics" download="timetable.ics">캘린더 알림 파일 받기</a>
+    <p class="note">받은 파일을 열고 <b>삼성 캘린더</b>로 저장하면 폰과 워치에서 알림이 울려요. 학교 가는 날은 헬스 1시간 30분 전에 출발 알림, 수업은 10분 전, 과제·그림·독서·게임은 시작할 때, 자정엔 게임 끝 알림. 이 화면은 남은 시간 확인용이에요.</p>
+  </section>
+</div>
+
+<script>
+const LEAD = 90; // 학교 첫 일정 몇 분 전에 출발
+const C = { gym: "#e06c9f", walk: "#e06c9f", hw: "#8a8fe0", draw: "#c88ae0", read: "#7fb8e6", game: "#5f6370", bed: "#5f6370" };
+// school: 학교에서 하는 일정(출발 시각 계산에 씀)
+const ITEMS = [
+  { d: [1, 2, 3], name: "헬스", room: "학교 헬스장 · 끝나고 씻기", s: "10:30", e: "11:30", c: C.gym, school: true },
+  { d: [5],       name: "헬스", room: "학교 헬스장 · 끝나고 씻기", s: "11:30", e: "12:30", c: C.gym, school: true },
+  { d: [4],       name: "산책·달리기·자전거", room: "동네", s: "10:00", e: "11:00", c: C.walk },
+  { d: [1], name: "ICT시대의 디자인씽킹", room: "수리관 (A)-501", s: "12:00", e: "14:50", c: "#d0766a", school: true },
+  { d: [1], name: "메타디자인",           room: "대신관 (C)-303", s: "15:00", e: "17:50", c: "#cfad5f", school: true },
+  { d: [2], name: "비주얼내러티브",       room: "대신관 (C)-306", s: "12:00", e: "14:50", c: "#94ad64", school: true },
+  { d: [2], name: "3D컴퓨터그래픽스II",   room: "대신관 (C)-302", s: "15:00", e: "17:50", c: "#6fb3a6", school: true },
+  { d: [3], name: "자기계발과 Life DESIGN", room: "강의실 미정",  s: "12:00", e: "12:50", c: "#6b8fca", school: true },
+  { d: [5], name: "인터페이스디자인",     room: "대신관 (C)-303", s: "13:00", e: "15:50", c: "#d9965a", school: true },
+  { d: [1, 2, 3, 4, 5], name: "과제",      room: "", s: "19:30", e: "21:00", c: C.hw },
+  { d: [1, 2, 3, 4, 5], name: "그림 연습", room: "", s: "21:00", e: "22:00", c: C.draw },
+  { d: [1, 2, 3, 4, 5], name: "독서",      room: "", s: "22:00", e: "22:30", c: C.read },
+  { d: [1, 2, 3, 4, 5], name: "게임",      room: "자정에 끝", s: "22:30", e: "24:00", c: C.game },
+];
+const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
+const $ = id => document.getElementById(id);
+const mins = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+const hhmm = m => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+const forDay = d => ITEMS.filter(c => c.d.includes(d)).sort((a, b) => mins(a.s) - mins(b.s));
+const departOf = d => { const f = forDay(d).find(c => c.school); return f ? { at: mins(f.s) - LEAD, first: f } : null; };
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} },
+};
+
+let viewDay = null; // null = 오늘
+
+function nextStart(from) {
+  for (let i = 1; i <= 7; i++) { const d = (from + i) % 7; const f = forDay(d)[0]; if (f) return { d, ahead: i, f }; }
+}
+
+function setHero(cls, label, count, sub) {
+  $("hero").className = "hero" + (cls ? " " + cls : "");
+  $("heroLabel").textContent = label;
+  $("heroCount").textContent = count;
+  $("heroSub").innerHTML = sub;
+}
+
+function render() {
+  const now = new Date();
+  const today = now.getDay();
+  const nowM = now.getHours() * 60 + now.getMinutes();
+  const sec = now.getSeconds();
+  const key = "left-" + now.toDateString();
+  const left = store.get(key) === "1";
+  $("today").textContent = `${now.getMonth() + 1}월 ${now.getDate()}일 ${DAYS[today]}요일`;
+
+  // 큰 숫자: 등교 전이면 출발 카운트다운, 그 뒤엔 지금/다음 할 일
+  const todays = forDay(today), dep = departOf(today), btn = $("goBtn");
+  const beforeSchool = dep && nowM < mins(dep.first.s);
+  btn.hidden = !beforeSchool;
+  if (beforeSchool) {
+    btn.setAttribute("aria-pressed", left);
+    btn.textContent = left ? "출발함 ✓ (취소)" : "출발했어요";
+  }
+  const cur = todays.find(c => nowM >= mins(c.s) && nowM < mins(c.e));
+  const next = todays.find(c => nowM < mins(c.s));
+  const nextTxt = c => `${c.name} <span>${c.s}</span>${c.room ? " · " + c.room : ""}`;
+
+  if (beforeSchool && !left && nowM < dep.at) {
+    setHero("", "등교 출발까지", countdown(dep.at - nowM, sec), `<span>${hhmm(dep.at)}</span> 출발 → ${dep.first.name} <span>${dep.first.s}</span>`);
+  } else if (beforeSchool && !left) {
+    setHero("late", "지금 나가야 해요 · " + dep.first.name + "까지", countdown(mins(dep.first.s) - nowM, sec), `출발 시각 <span>${hhmm(dep.at)}</span> 지남`);
+  } else if (cur) {
+    setHero("ok", `${cur.name} 끝나기까지`, countdown(mins(cur.e) - nowM, sec), next ? "다음: " + nextTxt(next) : "오늘 마지막 일정");
+  } else if (next) {
+    setHero("", `${next.name}까지`, countdown(mins(next.s) - nowM, sec), nextTxt(next));
+  } else {
+    const n = nextStart(today), nd = departOf(n.d);
+    const when = n.ahead === 1 ? "내일" : DAYS[n.d] + "요일";
+    setHero("free", "오늘 일정 끝", "잘 시간", nd
+      ? `${when} <span>${hhmm(nd.at)}</span> 출발 · ${nd.first.name}`
+      : `${when} <span>${n.f.s}</span> ${n.f.name}`);
+  }
+
+  // 일정 목록
+  const d = viewDay ?? today;
+  const isToday = d === today;
+  $("listTitle").textContent = isToday ? "오늘 일정" : `${DAYS[d]}요일 일정`;
+  const list = forDay(d), dd = departOf(d);
+  const depRow = dd ? `<div class="cls depart${isToday && nowM >= dd.at ? " past" : ""}"><span class="bar" style="background:var(--go)"></span>
+      <div><div class="name">등교 출발</div><div class="room">${dd.first.name} ${dd.first.s} 1시간 30분 전</div></div>
+      <div class="time">${hhmm(dd.at)}</div></div>` : "";
+  $("list").innerHTML = list.length ? depRow + list.map(c => {
+    const past = isToday && nowM >= mins(c.e);
+    const live = isToday && nowM >= mins(c.s) && nowM < mins(c.e);
+    return `<div class="cls${past ? " past" : ""}"><span class="bar" style="background:${c.c}"></span>
+      <div><div class="name">${c.name}${live ? '<span class="now">지금</span>' : ""}</div>${c.room ? `<div class="room">${c.room}</div>` : ""}</div>
+      <div class="time">${c.s}–${c.e === "24:00" ? "00:00" : c.e}</div></div>`;
+  }).join("") : `<div class="empty">${DAYS[d]}요일은 일정이 없어요.</div>`;
+
+  // 요일 칩: 그날 출발 시각
+  $("week").innerHTML = [1, 2, 3, 4, 5].map(w => {
+    const x = departOf(w);
+    return `<button type="button" id="day-${w}" class="chip" data-d="${w}" aria-current="${w === d}">
+      <span>${DAYS[w]}</span><small>${x ? hhmm(x.at) + " 출발" : "공강"}</small></button>`;
+  }).join("");
+}
+
+function countdown(m, sec) {
+  const total = m * 60 - sec;
+  if (total <= 0) return "0:00";
+  const h = Math.floor(total / 3600), mm = Math.floor(total % 3600 / 60), ss = total % 60;
+  return h ? `${h}:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}` : `${mm}:${String(ss).padStart(2, "0")}`;
+}
+
+$("week").addEventListener("click", e => {
+  const b = e.target.closest(".chip"); if (!b) return;
+  const d = Number(b.dataset.d);
+  viewDay = d === new Date().getDay() ? null : d;
+  render();
+});
+$("goBtn").addEventListener("click", () => {
+  const key = "left-" + new Date().toDateString();
+  store.set(key, store.get(key) === "1" ? null : "1");
+  render();
+});
+
+render();
+setInterval(render, 1000);
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
