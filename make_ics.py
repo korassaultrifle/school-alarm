@@ -3,10 +3,11 @@
 from datetime import date, timedelta
 
 START = date(2026, 10, 19)          # 이번 주 월요일부터
-UNTIL = "20261218T235959Z"          # 종강 예상일. 다르면 여기만 고치고 다시 실행
+UNTIL = "20261218T235959Z"          # 종강 예상일(수업·헬스). 다르면 여기만 고치고 다시 실행
+UNTIL_DIET = "20261226T235959Z"     # 다이어트 목표일(나머지 루틴)
 LEAD = 90                           # 등교 출발: 학교 첫 일정 몇 분 전
 
-# (요일들 0=월, 이름, 장소, 시작, 끝, 알림 분 목록, 학교 일정인지)
+# (요일들 0=월, 이름, 장소, 시작, 끝, 알림 분 목록, 학교 일정인지[, 시작 날짜])
 EVENTS = [
     # 수업
     ([0], "ICT시대의 디자인씽킹", "수리관 (A)-501", "1200", "1450", [10], True),
@@ -18,7 +19,16 @@ EVENTS = [
     # 운동: 수업 날은 첫 수업 1시간 30분 전 학교 헬스장(끝나고 30분 씻기), 목요일은 동네에서
     ([0, 1, 2], "헬스",          "학교 헬스장",    "1030", "1130", [0], True),
     ([4],       "헬스",          "학교 헬스장",    "1130", "1230", [0], True),
-    ([3],       "산책·달리기·자전거", "",          "1000", "1100", [0], False),
+    # 유산소: 자전거 15km(평지, 약 50분). 월·화는 헬스+긴 수업이라 쉬고, 나머지 매일
+    ([3],       "자전거 15km",   "",               "1000", "1050", [0], False),
+    ([2],       "자전거 15km",   "",               "1600", "1650", [0], False),
+    ([4],       "자전거 15km",   "",               "1730", "1820", [0], False),
+    ([5],       "자전거 15km",   "",               "1030", "1120", [0], False),
+    ([6],       "자전거 15km",   "",               "1030", "1120", [0], False, date(2026, 10, 19), "20261114T235959Z"),
+    ([6],       "달리기 5km (천천히)", "",         "1030", "1110", [0], False, date(2026, 11, 15)),
+    # 빈 시간: 목요일 오후는 과제 몰아서, 수요일 오후 짧게
+    ([2],       "과제 (밀린 것)", "",             "1400", "1530", [0], False),
+    ([3],       "과제 집중 (마감 가까운 것부터)", "", "1400", "1700", [0], False),
     # 저녁 루틴 (월~금)
     ([0, 1, 2, 3, 4], "과제",   "", "1930", "2100", [0], False),
     ([0, 1, 2, 3, 4], "그림 연습", "", "2100", "2200", [0], False),
@@ -35,11 +45,17 @@ EVENTS = [
     ([4],             "점심 (헬스 끝, 단백질 먼저)", "", "1235", "1255", [0], False),
     ([0, 1, 2, 3, 4], "저녁 (단백질 먼저)", "", "1900", "1930", [0], False),
     ([5, 6],          "야식 금지", "", "2230", "2235", [0], False),
+    # 주말: 끼니, 그림, 다음 주 정리
+    ([5, 6],          "아침 (단백질 먼저)", "", "1000", "1020", [0], False),
+    ([5, 6],          "점심 (단백질 먼저)", "", "1300", "1330", [0], False),
+    ([5, 6],          "저녁 (단백질 먼저)", "", "1830", "1900", [0], False),
+    ([5],             "그림 연습", "", "1500", "1600", [0], False),
+    ([6],             "다음 주 마감·과제 정리", "", "2100", "2120", [0], False),
 ]
 DAY = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"]
 
 first_school = {}
-for days, _n, _r, s, _e, _a, school in EVENTS:
+for days, _n, _r, s, _e, _a, school, *_ in EVENTS:
     if school:
         for d in days:
             first_school[d] = min(first_school.get(d, s), s)
@@ -57,20 +73,22 @@ lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//school-alarm//KO",
          "TZOFFSETFROM:+0900", "TZOFFSETTO:+0900", "TZNAME:KST", "END:STANDARD", "END:VTIMEZONE"]
 
 uid = 0
-for days, name, room, s, e, alarms, school in EVENTS:
+for days, name, room, s, e, alarms, school, *opt in EVENTS:
+    first_day = opt[0] if opt else START
+    until = opt[1] if len(opt) > 1 else (UNTIL if school else UNTIL_DIET)
     # 시작 시각이 같은 요일끼리 한 반복 일정으로. 등교 첫 일정이 낀 요일은 따로 뗀다
     groups = {}
     for d in days:
         is_first = school and first_school.get(d) == s
         groups.setdefault(is_first, []).append(d)
     for is_first, ds in groups.items():
-        d0 = START + timedelta(days=min(ds))
+        d0 = first_day + timedelta(days=(min(ds) - first_day.weekday()) % 7)
         end_day = d0 + timedelta(days=1) if e == "2400" else d0
         e_ = "0000" if e == "2400" else e
         lines += ["BEGIN:VEVENT", f"UID:ev-{uid}-2026-2@school-alarm", "DTSTAMP:20261019T000000Z",
                   f"DTSTART;TZID=Asia/Seoul:{d0:%Y%m%d}T{s}00",
                   f"DTEND;TZID=Asia/Seoul:{end_day:%Y%m%d}T{e_}00",
-                  f"RRULE:FREQ=WEEKLY;BYDAY={','.join(DAY[d] for d in ds)};UNTIL={UNTIL}",
+                  f"RRULE:FREQ=WEEKLY;BYDAY={','.join(DAY[d] for d in ds)};UNTIL={until}",
                   f"SUMMARY:{name}"]
         if room:
             lines.append(f"LOCATION:{room}")

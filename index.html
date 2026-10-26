@@ -65,7 +65,7 @@ h2 { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--muted); l
 .cls .now { display: inline-block; font-size: 11px; font-weight: 700; color: #121315; background: var(--done); border-radius: 4px; padding: 0 6px; margin-left: 6px; vertical-align: 2px; }
 .empty { color: var(--muted); background: var(--panel); border-radius: 12px; padding: 16px 14px; }
 
-.week { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
 .chip { font: inherit; background: var(--panel); border: 0; border-radius: 10px; color: var(--fg); padding: 10px 4px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .chip small { font-family: var(--f-num); font-size: 12px; color: var(--muted); }
 .chip[aria-current="true"] { box-shadow: inset 0 0 0 2px var(--fg); }
@@ -78,7 +78,9 @@ h2 { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--muted); l
 .weight-sec { display: flex; flex-direction: column; gap: 12px; }
 .weight-sec h2 { margin: 0; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-.w-form { display: flex; gap: 8px; }
+.w-form { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.w-form button { grid-column: 1 / -1; padding: 10px 0 !important; }
+.w-form input { font-size: 16px !important; }
 .w-form input { flex: 1; min-width: 0; font: inherit; font-family: var(--f-num); font-size: 18px; color: var(--fg); background: var(--panel); border: 0; border-radius: 10px; padding: 10px 12px; }
 .w-form button { font: inherit; font-weight: 700; border: 0; border-radius: 10px; padding: 0 18px; background: var(--done); color: #0f1a13; cursor: pointer; }
 .w-form input:focus-visible, .w-form button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
@@ -128,14 +130,19 @@ h2 { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--muted); l
   </section>
 
   <section class="weight-sec">
-    <h2>체중 · 목표 67kg (12월 26일까지)</h2>
+    <h2>체중 · 체성분 · 목표 12월 26일</h2>
     <form class="w-form" id="wForm">
-      <label for="wInput" class="sr">오늘 체중 (kg)</label>
-      <input id="wInput" type="number" inputmode="decimal" step="0.1" min="30" max="200" placeholder="오늘 체중 kg" required>
-      <button type="submit" id="wSave">기록</button>
+      <label for="wInput" class="sr">체중 (kg)</label>
+      <input id="wInput" type="number" inputmode="decimal" step="0.1" min="30" max="200" placeholder="체중 kg" required>
+      <label for="fInput" class="sr">체지방률 (%)</label>
+      <input id="fInput" type="number" inputmode="decimal" step="0.1" min="3" max="60" placeholder="체지방 %">
+      <label for="mInput" class="sr">골격근량 (kg)</label>
+      <input id="mInput" type="number" inputmode="decimal" step="0.1" min="10" max="80" placeholder="골격근 kg">
+      <button type="submit" id="wSave">오늘 기록</button>
     </form>
     <div class="w-stats" id="wStats"></div>
     <svg id="wChart" class="w-chart" viewBox="0 0 320 140" role="img" aria-label="체중 변화 그래프"></svg>
+    <svg id="fChart" class="w-chart" viewBox="0 0 320 140" role="img" aria-label="체지방률 변화 그래프"></svg>
     <p class="note" id="wNote"></p>
   </section>
 
@@ -153,7 +160,19 @@ const C = { meal: "#e0b85f", scale: "#6fcf97", gym: "#e06c9f", walk: "#e06c9f", 
 const ITEMS = [
   { d: [1, 2, 3], name: "헬스", room: "학교 헬스장 · 끝나고 씻기", s: "10:30", e: "11:30", c: C.gym, school: true },
   { d: [5],       name: "헬스", room: "학교 헬스장 · 끝나고 씻기", s: "11:30", e: "12:30", c: C.gym, school: true },
-  { d: [4],       name: "산책·달리기·자전거", room: "동네", s: "10:00", e: "11:00", c: C.walk },
+  { d: [4], name: "자전거 15km", room: "평지 · 약 50분", s: "10:00", e: "10:50", c: C.walk },
+  { d: [3], name: "자전거 15km", room: "평지 · 약 50분", s: "16:00", e: "16:50", c: C.walk },
+  { d: [5], name: "자전거 15km", room: "평지 · 약 50분", s: "17:30", e: "18:20", c: C.walk },
+  { d: [6], name: "자전거 15km", room: "평지 · 약 50분", s: "10:30", e: "11:20", c: C.walk },
+  { d: [0], name: "자전거 15km", room: "11/15부터는 달리기 5km (천천히)", s: "10:30", e: "11:20", c: C.walk },
+  { d: [3], name: "과제 (밀린 것)", room: "", s: "14:00", e: "15:30", c: C.hw },
+  { d: [4], name: "과제 집중", room: "마감 가까운 것부터", s: "14:00", e: "17:00", c: C.hw },
+  { d: [0, 6], name: "아침", room: "단백질 먼저", s: "10:00", e: "10:20", c: C.meal },
+  { d: [0, 6], name: "점심", room: "단백질 먼저", s: "13:00", e: "13:30", c: C.meal },
+  { d: [0, 6], name: "저녁", room: "단백질 먼저", s: "18:30", e: "19:00", c: C.meal },
+  { d: [6], name: "그림 연습", room: "", s: "15:00", e: "16:00", c: C.draw },
+  { d: [0], name: "다음 주 마감·과제 정리", room: "", s: "21:00", e: "21:20", c: C.hw },
+  { d: [0, 6], name: "야식 금지", room: "", s: "22:30", e: "22:35", c: C.game },
   { d: [1], name: "ICT시대의 디자인씽킹", room: "수리관 (A)-501", s: "12:00", e: "14:50", c: "#d0766a", school: true },
   { d: [1], name: "메타디자인",           room: "대신관 (C)-303", s: "15:00", e: "17:50", c: "#cfad5f", school: true },
   { d: [2], name: "비주얼내러티브",       room: "대신관 (C)-306", s: "12:00", e: "14:50", c: "#94ad64", school: true },
@@ -241,19 +260,20 @@ function render() {
   const depRow = dd ? `<div class="cls depart${isToday && nowM >= dd.at ? " past" : ""}"><span class="bar" style="background:var(--go)"></span>
       <div><div class="name">등교 출발</div><div class="room">${dd.first.name} ${dd.first.s} 1시간 30분 전</div></div>
       <div class="time">${hhmm(dd.at)}</div></div>` : "";
-  $("list").innerHTML = list.length ? depRow + list.map(c => {
+  const at = dd ? list.findIndex(c => mins(c.s) >= dd.at) : -1;
+  $("list").innerHTML = list.length ? list.map((c, i) => {
     const past = isToday && nowM >= mins(c.e);
     const live = isToday && nowM >= mins(c.s) && nowM < mins(c.e);
     return `<div class="cls${past ? " past" : ""}"><span class="bar" style="background:${c.c}"></span>
       <div><div class="name">${c.name}${live ? '<span class="now">지금</span>' : ""}</div>${c.room ? `<div class="room">${c.room}</div>` : ""}</div>
       <div class="time">${c.s}–${c.e === "24:00" ? "00:00" : c.e}</div></div>`;
-  }).join("") : `<div class="empty">${DAYS[d]}요일은 일정이 없어요.</div>`;
+  }).map((row, i) => (i === at ? depRow : "") + row).join("") : `<div class="empty">${DAYS[d]}요일은 일정이 없어요.</div>`;
 
   // 요일 칩: 그날 출발 시각
-  $("week").innerHTML = [1, 2, 3, 4, 5].map(w => {
+  $("week").innerHTML = [1, 2, 3, 4, 5, 6, 0].map(w => {
     const x = departOf(w);
     return `<button type="button" id="day-${w}" class="chip" data-d="${w}" aria-current="${w === d}">
-      <span>${DAYS[w]}</span><small>${x ? hhmm(x.at) + " 출발" : "공강"}</small></button>`;
+      <span>${DAYS[w]}</span><small>${x ? hhmm(x.at) : w === 0 || w === 6 ? "주말" : "공강"}</small></button>`;
   }).join("");
 }
 
@@ -276,60 +296,80 @@ $("goBtn").addEventListener("click", () => {
   render();
 });
 
-// ── 체중 기록 (이 폰 브라우저에만 저장) ──
-const W_START = { date: "2026-10-26", kg: 77 }, W_GOAL = { date: "2026-12-26", kg: 67 };
+// ── 체중·체성분 기록 (이 폰 브라우저에만 저장) ──
+// 시작: 10/26 워치 측정. 목표: 근육 그대로 두고 지방만 빼서 체지방 18% ≈ 68kg
+const START = { date: "2026-10-26", kg: 76.0, fat: 26.6, muscle: 29.8 };
+const GOAL = { date: "2026-12-26", kg: 68, fat: 18 };
 const dayMs = 864e5, toDate = s => new Date(s + "T00:00:00");
 const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-function loadW() { try { return JSON.parse(store.get("weights") || "{}"); } catch { return {}; } }
-function avg7(w, upto) {
-  const xs = Object.entries(w).filter(([d]) => d <= upto && toDate(upto) - toDate(d) < 7 * dayMs).map(([, v]) => v);
+function loadW() {
+  let w = {};
+  try { w = JSON.parse(store.get("weights") || "{}"); } catch {}
+  for (const k in w) if (typeof w[k] === "number") w[k] = { kg: w[k] }; // 예전 형식
+  return w;
+}
+function avg7(w, upto, key = "kg") {
+  const xs = Object.entries(w).filter(([d, v]) => d <= upto && toDate(upto) - toDate(d) < 7 * dayMs && v[key] != null).map(([, v]) => v[key]);
   return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
 }
-function renderWeight() {
-  const w = loadW(), days = Object.keys(w).sort(), today = ymd(new Date());
-  if (w[today] != null && document.activeElement !== $("wInput")) $("wInput").value = w[today];
-  const last = days.length ? w[days[days.length - 1]] : W_START.kg;
-  const a = avg7(w, today) ?? last;
-  const left = Math.max(0, Math.ceil((toDate(W_GOAL.date) - toDate(today)) / dayMs));
-  // 오늘 있어야 할 선 (77 → 67 직선)
-  const t = Math.min(1, Math.max(0, (toDate(today) - toDate(W_START.date)) / (toDate(W_GOAL.date) - toDate(W_START.date))));
-  const plan = W_START.kg + (W_GOAL.kg - W_START.kg) * t;
-  const diff = a - plan;
-  $("wStats").innerHTML = `<div><small>7일 평균</small><b>${a.toFixed(1)}kg</b></div>
-    <div><small>뺀 무게</small><b>${(W_START.kg - a).toFixed(1)}kg</b></div>
-    <div><small>계획 대비</small><b class="${diff <= 0.3 ? "good" : "bad"}">${diff > 0 ? "+" : ""}${diff.toFixed(1)}kg</b></div>`;
-  $("wNote").textContent = days.length
-    ? `목표까지 ${Math.max(0, a - W_GOAL.kg).toFixed(1)}kg · ${left}일 남음. 하루 숫자는 물 때문에 1kg씩 왔다 갔다 해요. 7일 평균을 보세요.`
-    : "아침에 화장실 다녀와서 재고 숫자를 넣어 주세요. 이 폰 브라우저에만 저장돼요.";
+const latest = (w, key) => { const d = Object.keys(w).sort().reverse().find(d => w[d][key] != null); return d ? w[d][key] : null; };
+const sign = v => (v > 0 ? "+" : "") + v.toFixed(1);
 
-  // 그래프: 가로 = 10/26~12/26, 세로 = 65~78kg
-  const X0 = 30, X1 = 312, Y0 = 10, Y1 = 120, KG_HI = 78, KG_LO = 65;
-  const span = toDate(W_GOAL.date) - toDate(W_START.date);
-  const x = d => X0 + (X1 - X0) * (toDate(d) - toDate(W_START.date)) / span;
-  const y = kg => Y0 + (Y1 - Y0) * (KG_HI - Math.min(KG_HI, Math.max(KG_LO, kg))) / (KG_HI - KG_LO);
+function chart(el, w, key, lo, hi, ticks, startV, goalV, unit) {
+  const X0 = 30, X1 = 312, Y0 = 10, Y1 = 120;
+  const span = toDate(GOAL.date) - toDate(START.date);
+  const x = d => X0 + (X1 - X0) * (toDate(d) - toDate(START.date)) / span;
+  const y = v => Y0 + (Y1 - Y0) * (hi - Math.min(hi, Math.max(lo, v))) / (hi - lo);
   let g = "";
-  for (const kg of [77, 72, 67]) g += `<line x1="${X0}" x2="${X1}" y1="${y(kg)}" y2="${y(kg)}" stroke="var(--line)"/><text x="2" y="${y(kg) + 3}">${kg}</text>`;
+  for (const t of ticks) g += `<line x1="${X0}" x2="${X1}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)"/><text x="2" y="${y(t) + 3}">${t}${unit}</text>`;
   g += `<text x="${X0}" y="135">10/26</text><text x="${X1}" y="135" text-anchor="end">12/26</text>`;
-  g += `<line x1="${x(W_START.date)}" y1="${y(W_START.kg)}" x2="${x(W_GOAL.date)}" y2="${y(W_GOAL.kg)}" stroke="var(--muted)" stroke-dasharray="4 4"/>`;
-  const inRange = days.filter(d => d >= W_START.date && d <= W_GOAL.date);
-  if (inRange.length) {
-    g += inRange.map(d => `<circle cx="${x(d).toFixed(1)}" cy="${y(w[d]).toFixed(1)}" r="2.5" fill="var(--muted)"/>`).join("");
-    const pts = inRange.map(d => `${x(d).toFixed(1)},${y(avg7(w, d)).toFixed(1)}`).join(" ");
-    g += `<polyline points="${pts}" fill="none" stroke="var(--done)" stroke-width="2.5" stroke-linejoin="round"/>`;
-    const e = inRange[inRange.length - 1];
-    g += `<circle cx="${x(e).toFixed(1)}" cy="${y(avg7(w, e)).toFixed(1)}" r="4" fill="var(--done)"/>`;
+  g += `<line x1="${x(START.date)}" y1="${y(startV)}" x2="${x(GOAL.date)}" y2="${y(goalV)}" stroke="var(--muted)" stroke-dasharray="4 4"/>`;
+  const days = Object.keys(w).sort().filter(d => d >= START.date && d <= GOAL.date && w[d][key] != null);
+  if (days.length) {
+    g += days.map(d => `<circle cx="${x(d).toFixed(1)}" cy="${y(w[d][key]).toFixed(1)}" r="2.5" fill="var(--muted)"/>`).join("");
+    g += `<polyline points="${days.map(d => `${x(d).toFixed(1)},${y(avg7(w, d, key)).toFixed(1)}`).join(" ")}" fill="none" stroke="var(--done)" stroke-width="2.5" stroke-linejoin="round"/>`;
+    const e = days[days.length - 1];
+    g += `<circle cx="${x(e).toFixed(1)}" cy="${y(avg7(w, e, key)).toFixed(1)}" r="4" fill="var(--done)"/>`;
   }
-  $("wChart").innerHTML = g;
+  el.innerHTML = g;
+}
+
+function renderWeight() {
+  const w = loadW(), today = ymd(new Date()), t0 = w[today] || {};
+  for (const [id, k] of [["wInput", "kg"], ["fInput", "fat"], ["mInput", "muscle"]])
+    if (t0[k] != null && document.activeElement !== $(id) && !$(id).value) $(id).value = t0[k];
+
+  const kg = avg7(w, today) ?? latest(w, "kg") ?? START.kg;
+  const fat = latest(w, "fat") ?? START.fat;
+  const mus = latest(w, "muscle") ?? START.muscle;
+  const dFat = fat - START.fat, dMus = mus - START.muscle;
+  $("wStats").innerHTML = `<div><small>체중 7일 평균</small><b>${kg.toFixed(1)}kg</b><small>${sign(kg - START.kg)}</small></div>
+    <div><small>체지방률</small><b class="${dFat <= 0 ? "good" : "bad"}">${fat.toFixed(1)}%</b><small>${sign(dFat)}%p</small></div>
+    <div><small>골격근량</small><b class="${dMus >= -0.5 ? "good" : "bad"}">${mus.toFixed(1)}kg</b><small>${dMus >= -0.5 ? "유지 중" : "줄었어요"}</small></div>`;
+
+  const left = Math.max(0, Math.ceil((toDate(GOAL.date) - toDate(today)) / dayMs));
+  $("wNote").textContent = !Object.keys(w).length
+    ? "아침에 화장실 다녀와서 워치로 체성분을 재고 세 숫자를 넣어 주세요. 체중만 넣어도 돼요. 이 폰 브라우저에만 저장돼요."
+    : dMus < -0.5
+      ? `근육이 ${(-dMus).toFixed(1)}kg 줄었어요. 단백질을 더 먹고 헬스 무게를 유지하세요. 목표까지 ${left}일.`
+      : `목표 68kg · 체지방 18%까지 ${left}일. 하루 숫자는 물 때문에 흔들려요. 초록 선(7일 평균)을 보세요.`;
+
+  chart($("wChart"), w, "kg", 66, 78, [76, 72, 68], START.kg, GOAL.kg, "");
+  chart($("fChart"), w, "fat", 16, 28, [26, 22, 18], START.fat, GOAL.fat, "%");
 }
 $("wForm").addEventListener("submit", e => {
   e.preventDefault();
-  const v = parseFloat($("wInput").value);
-  if (!(v > 30 && v < 200)) return;
-  const w = loadW(); w[ymd(new Date())] = Math.round(v * 10) / 10;
+  const num = id => { const v = parseFloat($(id).value); return isFinite(v) ? Math.round(v * 10) / 10 : null; };
+  const kg = num("wInput"); if (!(kg > 30 && kg < 200)) return;
+  const entry = { kg };
+  const fat = num("fInput"), muscle = num("mInput");
+  if (fat != null) entry.fat = fat;
+  if (muscle != null) entry.muscle = muscle;
+  const w = loadW(); w[ymd(new Date())] = entry;
   store.set("weights", JSON.stringify(w));
   $("wSave").textContent = "저장됨";
-  setTimeout(() => { $("wSave").textContent = "기록"; }, 1500);
-  $("wInput").blur();
+  setTimeout(() => { $("wSave").textContent = "오늘 기록"; }, 1500);
+  document.activeElement.blur();
   renderWeight();
 });
 

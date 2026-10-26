@@ -1,5 +1,5 @@
 // 오프라인에서도 열리게: 먼저 네트워크, 안 되면 저장해 둔 것
-const CACHE = "school-alarm-v2";
+const CACHE = "school-alarm-v4";
 const FILES = ["./", "index.html", "manifest.webmanifest", "timetable.ics", "icons/icon-192.png", "icons/icon-512.png"];
 
 self.addEventListener("install", e => {
