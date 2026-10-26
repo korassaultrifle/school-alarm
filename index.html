@@ -75,6 +75,20 @@ h2 { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--muted); l
 @media (prefers-reduced-motion: no-preference) { .hero.late .count { animation: blink 1s steps(2) infinite; } }
 @keyframes blink { 50% { opacity: .55; } }
 
+.weight-sec { display: flex; flex-direction: column; gap: 12px; }
+.weight-sec h2 { margin: 0; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.w-form { display: flex; gap: 8px; }
+.w-form input { flex: 1; min-width: 0; font: inherit; font-family: var(--f-num); font-size: 18px; color: var(--fg); background: var(--panel); border: 0; border-radius: 10px; padding: 10px 12px; }
+.w-form button { font: inherit; font-weight: 700; border: 0; border-radius: 10px; padding: 0 18px; background: var(--done); color: #0f1a13; cursor: pointer; }
+.w-form input:focus-visible, .w-form button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.w-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.w-stats div { background: var(--panel); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; }
+.w-stats small { font-size: 12px; color: var(--muted); }
+.w-stats b { font-family: var(--f-num); font-size: 17px; font-variant-numeric: tabular-nums; }
+.w-stats .good { color: var(--done); } .w-stats .bad { color: var(--late); }
+.w-chart { width: 100%; height: auto; background: var(--panel); border-radius: 12px; }
+.w-chart text { fill: var(--muted); font-family: var(--f-num); font-size: 10px; }
 .ics { display: flex; flex-direction: column; gap: 10px; }
 .ics a { align-self: flex-start; font-weight: 700; color: var(--fg); text-decoration: none; padding: 10px 16px; border-radius: 10px; box-shadow: inset 0 0 0 1.5px var(--line); }
 .ics a:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
@@ -83,7 +97,7 @@ h2 { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--muted); l
 @media (max-width: 320px) {
   body { padding-left: 14%; padding-right: 14%; font-size: 13px; }
   .wrap { box-sizing: border-box; min-height: 100%; justify-content: center; padding-block: 12px; gap: 6px; }
-  .top, .list-sec, .week-sec, .ics, .go-btn { display: none !important; }
+  .top, .list-sec, .week-sec, .weight-sec, .ics, .go-btn { display: none !important; }
   .hero { align-items: center; text-align: center; padding: 0; gap: 2px; }
   .hero .label { font-size: 12px; }
   .hero .count { font-size: 36px; }
@@ -113,16 +127,28 @@ h2 { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--muted); l
     <div class="week" id="week"></div>
   </section>
 
+  <section class="weight-sec">
+    <h2>체중 · 목표 67kg (12월 26일까지)</h2>
+    <form class="w-form" id="wForm">
+      <label for="wInput" class="sr">오늘 체중 (kg)</label>
+      <input id="wInput" type="number" inputmode="decimal" step="0.1" min="30" max="200" placeholder="오늘 체중 kg" required>
+      <button type="submit" id="wSave">기록</button>
+    </form>
+    <div class="w-stats" id="wStats"></div>
+    <svg id="wChart" class="w-chart" viewBox="0 0 320 140" role="img" aria-label="체중 변화 그래프"></svg>
+    <p class="note" id="wNote"></p>
+  </section>
+
   <section class="ics">
     <h2>알림 넣기</h2>
     <a href="timetable.ics" download="timetable.ics">캘린더 알림 파일 받기</a>
-    <p class="note">받은 파일을 열고 <b>삼성 캘린더</b>로 저장하면 폰과 워치에서 알림이 울려요. 학교 가는 날은 헬스 1시간 30분 전에 출발 알림, 수업은 10분 전, 과제·그림·독서·게임은 시작할 때, 자정엔 게임 끝 알림. 이 화면은 남은 시간 확인용이에요.</p>
+    <p class="note">받은 파일을 열고 <b>삼성 캘린더</b>로 저장하면 폰과 워치에서 알림이 울려요. 학교 가는 날은 헬스 1시간 30분 전에 출발 알림, 수업은 10분 전, 과제·그림·독서·게임·식사·체중은 시작할 때, 자정엔 게임 끝 알림. 이 화면은 남은 시간 확인용이에요.</p>
   </section>
 </div>
 
 <script>
 const LEAD = 90; // 학교 첫 일정 몇 분 전에 출발
-const C = { gym: "#e06c9f", walk: "#e06c9f", hw: "#8a8fe0", draw: "#c88ae0", read: "#7fb8e6", game: "#5f6370", bed: "#5f6370" };
+const C = { meal: "#e0b85f", scale: "#6fcf97", gym: "#e06c9f", walk: "#e06c9f", hw: "#8a8fe0", draw: "#c88ae0", read: "#7fb8e6", game: "#5f6370", bed: "#5f6370" };
 // school: 학교에서 하는 일정(출발 시각 계산에 씀)
 const ITEMS = [
   { d: [1, 2, 3], name: "헬스", room: "학교 헬스장 · 끝나고 씻기", s: "10:30", e: "11:30", c: C.gym, school: true },
@@ -137,7 +163,14 @@ const ITEMS = [
   { d: [1, 2, 3, 4, 5], name: "과제",      room: "", s: "19:30", e: "21:00", c: C.hw },
   { d: [1, 2, 3, 4, 5], name: "그림 연습", room: "", s: "21:00", e: "22:00", c: C.draw },
   { d: [1, 2, 3, 4, 5], name: "독서",      room: "", s: "22:00", e: "22:30", c: C.read },
-  { d: [1, 2, 3, 4, 5], name: "게임",      room: "자정에 끝", s: "22:30", e: "24:00", c: C.game },
+  { d: [1, 2, 3, 4, 5], name: "게임",      room: "자정에 끝 · 야식 금지", s: "22:30", e: "24:00", c: C.game },
+  { d: [1, 2, 3, 4, 5], name: "체중 재기", room: "화장실 다녀와서 · 아래에 기록", s: "07:40", e: "07:45", c: C.scale },
+  { d: [0, 6],          name: "체중 재기", room: "화장실 다녀와서 · 아래에 기록", s: "09:30", e: "09:35", c: C.scale },
+  { d: [1, 2, 3, 4, 5], name: "아침", room: "단백질 먼저", s: "08:00", e: "08:20", c: C.meal },
+  { d: [1, 2, 3],       name: "점심", room: "헬스 끝 · 단백질 먼저", s: "11:35", e: "11:55", c: C.meal },
+  { d: [4],             name: "점심", room: "단백질 먼저", s: "12:00", e: "12:30", c: C.meal },
+  { d: [5],             name: "점심", room: "헬스 끝 · 단백질 먼저", s: "12:35", e: "12:55", c: C.meal },
+  { d: [1, 2, 3, 4, 5], name: "저녁", room: "단백질 먼저", s: "19:00", e: "19:30", c: C.meal },
 ];
 const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const $ = id => document.getElementById(id);
@@ -243,7 +276,65 @@ $("goBtn").addEventListener("click", () => {
   render();
 });
 
+// ── 체중 기록 (이 폰 브라우저에만 저장) ──
+const W_START = { date: "2026-10-26", kg: 77 }, W_GOAL = { date: "2026-12-26", kg: 67 };
+const dayMs = 864e5, toDate = s => new Date(s + "T00:00:00");
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+function loadW() { try { return JSON.parse(store.get("weights") || "{}"); } catch { return {}; } }
+function avg7(w, upto) {
+  const xs = Object.entries(w).filter(([d]) => d <= upto && toDate(upto) - toDate(d) < 7 * dayMs).map(([, v]) => v);
+  return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+}
+function renderWeight() {
+  const w = loadW(), days = Object.keys(w).sort(), today = ymd(new Date());
+  if (w[today] != null && document.activeElement !== $("wInput")) $("wInput").value = w[today];
+  const last = days.length ? w[days[days.length - 1]] : W_START.kg;
+  const a = avg7(w, today) ?? last;
+  const left = Math.max(0, Math.ceil((toDate(W_GOAL.date) - toDate(today)) / dayMs));
+  // 오늘 있어야 할 선 (77 → 67 직선)
+  const t = Math.min(1, Math.max(0, (toDate(today) - toDate(W_START.date)) / (toDate(W_GOAL.date) - toDate(W_START.date))));
+  const plan = W_START.kg + (W_GOAL.kg - W_START.kg) * t;
+  const diff = a - plan;
+  $("wStats").innerHTML = `<div><small>7일 평균</small><b>${a.toFixed(1)}kg</b></div>
+    <div><small>뺀 무게</small><b>${(W_START.kg - a).toFixed(1)}kg</b></div>
+    <div><small>계획 대비</small><b class="${diff <= 0.3 ? "good" : "bad"}">${diff > 0 ? "+" : ""}${diff.toFixed(1)}kg</b></div>`;
+  $("wNote").textContent = days.length
+    ? `목표까지 ${Math.max(0, a - W_GOAL.kg).toFixed(1)}kg · ${left}일 남음. 하루 숫자는 물 때문에 1kg씩 왔다 갔다 해요. 7일 평균을 보세요.`
+    : "아침에 화장실 다녀와서 재고 숫자를 넣어 주세요. 이 폰 브라우저에만 저장돼요.";
+
+  // 그래프: 가로 = 10/26~12/26, 세로 = 65~78kg
+  const X0 = 30, X1 = 312, Y0 = 10, Y1 = 120, KG_HI = 78, KG_LO = 65;
+  const span = toDate(W_GOAL.date) - toDate(W_START.date);
+  const x = d => X0 + (X1 - X0) * (toDate(d) - toDate(W_START.date)) / span;
+  const y = kg => Y0 + (Y1 - Y0) * (KG_HI - Math.min(KG_HI, Math.max(KG_LO, kg))) / (KG_HI - KG_LO);
+  let g = "";
+  for (const kg of [77, 72, 67]) g += `<line x1="${X0}" x2="${X1}" y1="${y(kg)}" y2="${y(kg)}" stroke="var(--line)"/><text x="2" y="${y(kg) + 3}">${kg}</text>`;
+  g += `<text x="${X0}" y="135">10/26</text><text x="${X1}" y="135" text-anchor="end">12/26</text>`;
+  g += `<line x1="${x(W_START.date)}" y1="${y(W_START.kg)}" x2="${x(W_GOAL.date)}" y2="${y(W_GOAL.kg)}" stroke="var(--muted)" stroke-dasharray="4 4"/>`;
+  const inRange = days.filter(d => d >= W_START.date && d <= W_GOAL.date);
+  if (inRange.length) {
+    g += inRange.map(d => `<circle cx="${x(d).toFixed(1)}" cy="${y(w[d]).toFixed(1)}" r="2.5" fill="var(--muted)"/>`).join("");
+    const pts = inRange.map(d => `${x(d).toFixed(1)},${y(avg7(w, d)).toFixed(1)}`).join(" ");
+    g += `<polyline points="${pts}" fill="none" stroke="var(--done)" stroke-width="2.5" stroke-linejoin="round"/>`;
+    const e = inRange[inRange.length - 1];
+    g += `<circle cx="${x(e).toFixed(1)}" cy="${y(avg7(w, e)).toFixed(1)}" r="4" fill="var(--done)"/>`;
+  }
+  $("wChart").innerHTML = g;
+}
+$("wForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const v = parseFloat($("wInput").value);
+  if (!(v > 30 && v < 200)) return;
+  const w = loadW(); w[ymd(new Date())] = Math.round(v * 10) / 10;
+  store.set("weights", JSON.stringify(w));
+  $("wSave").textContent = "저장됨";
+  setTimeout(() => { $("wSave").textContent = "기록"; }, 1500);
+  $("wInput").blur();
+  renderWeight();
+});
+
 render();
+renderWeight();
 setInterval(render, 1000);
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
