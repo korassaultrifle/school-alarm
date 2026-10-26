@@ -1,2 +1,9 @@
 .claude/
 __pycache__/
+.keys/
+watch/.gradle/
+watch/build/
+watch/app/build/
+watch/local.properties
+*.apk
+platform-tools/
