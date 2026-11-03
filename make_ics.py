@@ -54,6 +54,23 @@ EVENTS = [
 ]
 DAY = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"]
 
+# 하루만 있는 일정: (날짜, 이름, 장소, 시작, 끝, 알림 분 목록, 학교 일정인지 = 출발 알림)
+ONE_OFF = [
+    (date(2026, 11, 5),  "기업탐방 · 세종텔레콤", "경기도 과천 · 점심 제공", "1000", "1400", [0], True),
+    (date(2026, 11, 5),  "과제 집중 (마감 가까운 것부터)", "", "1530", "1700", [0], False),
+    (date(2026, 11, 5),  "자전거 15km", "", "1730", "1820", [0], False),
+    (date(2026, 11, 11), "과제 (밀린 것)", "", "1300", "1440", [0], False),
+    (date(2026, 11, 11), "진로 방탈출", "수봉관 8층 멀티룸", "1500", "1800", [10], False),
+]
+# 그날만 빠지는 반복 일정: (이름, 시작) → 날짜들
+SKIP = {
+    ("자전거 15km", "1000"): [date(2026, 11, 5)],
+    ("점심 (단백질 먼저)", "1200"): [date(2026, 11, 5)],
+    ("과제 집중 (마감 가까운 것부터)", "1400"): [date(2026, 11, 5)],
+    ("과제 (밀린 것)", "1400"): [date(2026, 11, 11)],
+    ("자전거 15km", "1600"): [date(2026, 11, 11)],
+}
+
 first_school = {}
 for days, _n, _r, s, _e, _a, school, *_ in EVENTS:
     if school:
@@ -90,6 +107,9 @@ for days, name, room, s, e, alarms, school, *opt in EVENTS:
                   f"DTEND;TZID=Asia/Seoul:{end_day:%Y%m%d}T{e_}00",
                   f"RRULE:FREQ=WEEKLY;BYDAY={','.join(DAY[d] for d in ds)};UNTIL={until}",
                   f"SUMMARY:{name}"]
+        skip = [x for x in SKIP.get((name, s), []) if x.weekday() in ds]
+        if skip:
+            lines.append(f"EXDATE;TZID=Asia/Seoul:" + ",".join(f"{x:%Y%m%d}T{s}00" for x in skip))
         if room:
             lines.append(f"LOCATION:{room}")
         if is_first:
@@ -98,6 +118,19 @@ for days, name, room, s, e, alarms, school, *opt in EVENTS:
             lines += alarm(m, f"{name} 시작 {room}".strip() if m == 0 else f"{name} {m}분 전 {room}".strip())
         lines.append("END:VEVENT")
         uid += 1
+
+for d, name, room, s, e, alarms, school in ONE_OFF:
+    lines += ["BEGIN:VEVENT", f"UID:once-{d:%Y%m%d}-{s}@school-alarm", "DTSTAMP:20261103T000000Z",
+              f"DTSTART;TZID=Asia/Seoul:{d:%Y%m%d}T{s}00", f"DTEND;TZID=Asia/Seoul:{d:%Y%m%d}T{e}00",
+              f"SUMMARY:{name}"]
+    if room:
+        lines.append(f"LOCATION:{room}")
+    if school:
+        lines += alarm(LEAD, f"지금 출발! {name} {t(s)} 시작")
+    for m in alarms:
+        lines += alarm(m, f"{name} 시작 {room}".strip() if m == 0 else f"{name} {m}분 전 {room}".strip())
+    lines.append("END:VEVENT")
+    uid += 1
 
 lines.append("END:VCALENDAR")
 with open("timetable.ics", "w", encoding="utf-8", newline="") as f:

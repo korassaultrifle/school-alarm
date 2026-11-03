@@ -160,13 +160,19 @@ const C = { meal: "#e0b85f", scale: "#6fcf97", gym: "#e06c9f", walk: "#e06c9f", 
 const ITEMS = [
   { d: [1, 2, 3], name: "헬스", room: "학교 헬스장 · 끝나고 씻기", s: "10:30", e: "11:30", c: C.gym, school: true },
   { d: [5],       name: "헬스", room: "학교 헬스장 · 끝나고 씻기", s: "11:30", e: "12:30", c: C.gym, school: true },
-  { d: [4], name: "자전거 15km", room: "평지 · 약 50분", s: "10:00", e: "10:50", c: C.walk },
-  { d: [3], name: "자전거 15km", room: "평지 · 약 50분", s: "16:00", e: "16:50", c: C.walk },
+  { d: [4], name: "자전거 15km", room: "평지 · 약 50분", s: "10:00", e: "10:50", c: C.walk, skip: ["2026-11-05"] },
+  { d: [3], name: "자전거 15km", room: "평지 · 약 50분", s: "16:00", e: "16:50", c: C.walk, skip: ["2026-11-11"] },
   { d: [5], name: "자전거 15km", room: "평지 · 약 50분", s: "17:30", e: "18:20", c: C.walk },
   { d: [6], name: "자전거 15km", room: "평지 · 약 50분", s: "10:30", e: "11:20", c: C.walk },
   { d: [0], name: "자전거 15km", room: "11/15부터는 달리기 5km (천천히)", s: "10:30", e: "11:20", c: C.walk },
-  { d: [3], name: "과제 (밀린 것)", room: "", s: "14:00", e: "15:30", c: C.hw },
-  { d: [4], name: "과제 집중", room: "마감 가까운 것부터", s: "14:00", e: "17:00", c: C.hw },
+  { d: [3], name: "과제 (밀린 것)", room: "", s: "14:00", e: "15:30", c: C.hw, skip: ["2026-11-11"] },
+  { d: [4], name: "과제 집중", room: "마감 가까운 것부터", s: "14:00", e: "17:00", c: C.hw, skip: ["2026-11-05"] },
+  // 하루만 있는 일정 (on = 날짜)
+  { on: "2026-11-05", name: "기업탐방 · 세종텔레콤", room: "경기도 과천 · 점심 제공", s: "10:00", e: "14:00", c: "#e0b85f", school: true },
+  { on: "2026-11-05", name: "과제 집중", room: "마감 가까운 것부터", s: "15:30", e: "17:00", c: C.hw },
+  { on: "2026-11-05", name: "자전거 15km", room: "평지 · 약 50분", s: "17:30", e: "18:20", c: C.walk },
+  { on: "2026-11-11", name: "과제 (밀린 것)", room: "", s: "13:00", e: "14:40", c: C.hw },
+  { on: "2026-11-11", name: "진로 방탈출", room: "수봉관 8층 멀티룸", s: "15:00", e: "18:00", c: "#e0b85f" },
   { d: [0, 6], name: "아침", room: "단백질 먼저", s: "10:00", e: "10:20", c: C.meal },
   { d: [0, 6], name: "점심", room: "단백질 먼저", s: "13:00", e: "13:30", c: C.meal },
   { d: [0, 6], name: "저녁", room: "단백질 먼저", s: "18:30", e: "19:00", c: C.meal },
@@ -187,7 +193,7 @@ const ITEMS = [
   { d: [0, 6],          name: "체중 재기", room: "화장실 다녀와서 · 아래에 기록", s: "09:30", e: "09:35", c: C.scale },
   { d: [1, 2, 3, 4, 5], name: "아침", room: "단백질 먼저", s: "08:00", e: "08:20", c: C.meal },
   { d: [1, 2, 3],       name: "점심", room: "헬스 끝 · 단백질 먼저", s: "11:35", e: "11:55", c: C.meal },
-  { d: [4],             name: "점심", room: "단백질 먼저", s: "12:00", e: "12:30", c: C.meal },
+  { d: [4],             name: "점심", room: "단백질 먼저", s: "12:00", e: "12:30", c: C.meal, skip: ["2026-11-05"] },
   { d: [5],             name: "점심", room: "헬스 끝 · 단백질 먼저", s: "12:35", e: "12:55", c: C.meal },
   { d: [1, 2, 3, 4, 5], name: "저녁", room: "단백질 먼저", s: "19:00", e: "19:30", c: C.meal },
 ];
@@ -195,7 +201,14 @@ const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const $ = id => document.getElementById(id);
 const mins = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
 const hhmm = m => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-const forDay = d => ITEMS.filter(c => c.d.includes(d)).sort((a, b) => mins(a.s) - mins(b.s));
+// 요일 d(0=일)의 오늘 또는 다가오는 날짜
+const dateFor = d => { const t = new Date(); t.setDate(t.getDate() + (d - t.getDay() + 7) % 7); return t; };
+const iso = t => `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+const forDay = d => {
+  const ds = iso(dateFor(d));
+  return ITEMS.filter(c => c.on ? c.on === ds : c.d.includes(d) && !(c.skip || []).includes(ds))
+    .sort((a, b) => mins(a.s) - mins(b.s));
+};
 const departOf = d => { const f = forDay(d).find(c => c.school); return f ? { at: mins(f.s) - LEAD, first: f } : null; };
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },

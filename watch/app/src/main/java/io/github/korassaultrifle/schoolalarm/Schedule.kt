@@ -14,7 +14,7 @@ import java.time.LocalTime
 
 // make_ics.py, index.html 과 같은 일정. 하나를 바꾸면 셋 다 바꿔요.
 
-enum class Kind { CLASS, GYM, ROUTINE }
+enum class Kind { CLASS, GYM, EVENT, ROUTINE }
 
 data class Item(
     val days: Set<DayOfWeek>,
@@ -25,9 +25,10 @@ data class Item(
     val kind: Kind = Kind.ROUTINE,
     val from: LocalDate = SEMESTER_START,
     val until: LocalDate = DIET_END,
+    val skip: Set<LocalDate> = emptySet(),
 ) {
     val school get() = kind != Kind.ROUTINE
-    fun activeOn(d: LocalDate) = d.dayOfWeek in days && !d.isBefore(from) && !d.isAfter(until)
+    fun activeOn(d: LocalDate) = d.dayOfWeek in days && !d.isBefore(from) && !d.isAfter(until) && d !in skip
 }
 
 data class AlarmEvent(val at: LocalDateTime, val title: String, val text: String, val strong: Boolean)
@@ -36,6 +37,13 @@ val SEMESTER_START: LocalDate = LocalDate.of(2026, 10, 19)
 val CLASS_END: LocalDate = LocalDate.of(2026, 12, 18)
 val DIET_END: LocalDate = LocalDate.of(2026, 12, 26)
 const val LEAD = 90 // 학교 첫 일정 몇 분 전에 출발
+
+private val NOV5: LocalDate = LocalDate.of(2026, 11, 5)
+private val NOV11: LocalDate = LocalDate.of(2026, 11, 11)
+
+/** 하루만 있는 일정 */
+private fun once(d: LocalDate, name: String, room: String, s: Int, e: Int, kind: Kind = Kind.ROUTINE) =
+    Item(setOf(d.dayOfWeek), name, room, s, e, kind, from = d, until = d)
 
 private fun t(s: String): Int { val (h, m) = s.split(":").map { it.toInt() }; return h * 60 + m }
 private val WEEKDAYS = setOf(MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY)
@@ -53,15 +61,21 @@ val ITEMS: List<Item> = listOf(
     Item(setOf(MONDAY, TUESDAY, WEDNESDAY), "헬스", "학교 헬스장", t("10:30"), t("11:30"), Kind.GYM, until = CLASS_END),
     Item(setOf(FRIDAY), "헬스", "학교 헬스장", t("11:30"), t("12:30"), Kind.GYM, until = CLASS_END),
     // 유산소
-    Item(setOf(THURSDAY), "자전거 15km", "", t("10:00"), t("10:50")),
-    Item(setOf(WEDNESDAY), "자전거 15km", "", t("16:00"), t("16:50")),
+    Item(setOf(THURSDAY), "자전거 15km", "", t("10:00"), t("10:50"), skip = setOf(NOV5)),
+    Item(setOf(WEDNESDAY), "자전거 15km", "", t("16:00"), t("16:50"), skip = setOf(NOV11)),
     Item(setOf(FRIDAY), "자전거 15km", "", t("17:30"), t("18:20")),
     Item(setOf(SATURDAY), "자전거 15km", "", t("10:30"), t("11:20")),
     Item(setOf(SUNDAY), "자전거 15km", "", t("10:30"), t("11:20"), until = LocalDate.of(2026, 11, 14)),
     Item(setOf(SUNDAY), "달리기 5km", "천천히", t("10:30"), t("11:10"), from = LocalDate.of(2026, 11, 15)),
     // 빈 시간
-    Item(setOf(WEDNESDAY), "과제 (밀린 것)", "", t("14:00"), t("15:30")),
-    Item(setOf(THURSDAY), "과제 집중", "마감 가까운 것부터", t("14:00"), t("17:00")),
+    Item(setOf(WEDNESDAY), "과제 (밀린 것)", "", t("14:00"), t("15:30"), skip = setOf(NOV11)),
+    Item(setOf(THURSDAY), "과제 집중", "마감 가까운 것부터", t("14:00"), t("17:00"), skip = setOf(NOV5)),
+    // 하루만 있는 일정
+    once(NOV5, "기업탐방 · 세종텔레콤", "경기도 과천 · 점심 제공", t("10:00"), t("14:00"), Kind.EVENT),
+    once(NOV5, "과제 집중", "마감 가까운 것부터", t("15:30"), t("17:00")),
+    once(NOV5, "자전거 15km", "", t("17:30"), t("18:20")),
+    once(NOV11, "과제 (밀린 것)", "", t("13:00"), t("14:40")),
+    once(NOV11, "진로 방탈출", "수봉관 8층 멀티룸", t("15:00"), t("18:00"), Kind.CLASS),
     // 저녁 루틴
     Item(WEEKDAYS, "과제", "", t("19:30"), t("21:00")),
     Item(WEEKDAYS, "그림 연습", "", t("21:00"), t("22:00")),
@@ -73,7 +87,7 @@ val ITEMS: List<Item> = listOf(
     Item(WEEKEND, "체중 재기", "화장실 다녀와서", t("09:30"), t("09:35")),
     Item(WEEKDAYS, "아침", "단백질 먼저", t("08:00"), t("08:20")),
     Item(setOf(MONDAY, TUESDAY, WEDNESDAY), "점심", "헬스 끝 · 단백질 먼저", t("11:35"), t("11:55")),
-    Item(setOf(THURSDAY), "점심", "단백질 먼저", t("12:00"), t("12:30")),
+    Item(setOf(THURSDAY), "점심", "단백질 먼저", t("12:00"), t("12:30"), skip = setOf(NOV5)),
     Item(setOf(FRIDAY), "점심", "헬스 끝 · 단백질 먼저", t("12:35"), t("12:55")),
     Item(WEEKDAYS, "저녁", "단백질 먼저", t("19:00"), t("19:30")),
     Item(WEEKEND, "아침", "단백질 먼저", t("10:00"), t("10:20")),
