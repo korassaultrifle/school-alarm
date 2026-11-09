@@ -8,3 +8,4 @@ watch/local.properties
 *.apk
 platform-tools/
 .dl/
+HANDOFF.md
